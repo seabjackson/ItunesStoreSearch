@@ -11,6 +11,7 @@ import UIKit
 class SearchViewController: UIViewController {
     @IBOutlet weak var searchBar: UISearchBar!
     @IBOutlet weak var tableView: UITableView!
+    @IBOutlet weak var segmentedControl: UISegmentedControl!
     
     var searchResults: [SearchResult] = []
     var hasSearched = false
@@ -25,7 +26,7 @@ class SearchViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        tableView.contentInset = UIEdgeInsets(top: 64, left: 0, bottom: 0, right: 0)
+        tableView.contentInset = UIEdgeInsets(top: 108, left: 0, bottom: 0, right: 0)
         
         var cellNib = UINib(nibName: TableViewCellIdentifiers.searchResultCell, bundle: nil)
         tableView.register(cellNib, forCellReuseIdentifier: TableViewCellIdentifiers.searchResultCell)
@@ -40,11 +41,10 @@ class SearchViewController: UIViewController {
         
         searchBar.becomeFirstResponder()
     }
-    
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
+   
+    @IBAction func segmentChanged(_ sender: UISegmentedControl) {
     }
+    
     
     func iTunesURL(searchText: String) -> URL {
         let escapedSearchText = searchText.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed)!
@@ -206,26 +206,30 @@ extension SearchViewController: UISearchBarDelegate {
             let session = URLSession.shared
             
             let dataTask = session.dataTask(with: url, completionHandler: { (data, response, error) in
-                if let error = error {
-                    print("Failure! \(error)")
+                if let error = error as? NSError, error.code == -999 {
+                    return // Search was cancelled
                 } else if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200  {
                     if let data = data, let jsonDictionary = self.parse(json: data) {
                         self.searchResults = self.parse(dictionary: jsonDictionary)
                         self.searchResults.sort(by: <)
                         
                         DispatchQueue.main.async {
-                            self.hasSearched = false
                             self.isLoading = false
                             self.tableView.reloadData()
-                            self.showNetworkError()
                         }
+                        return
                     }
                 } else {
                     print("Failute! \(response)")
                 }
+                DispatchQueue.main.async {
+                    self.hasSearched = false
+                    self.isLoading = false
+                    self.tableView.reloadData()
+                    self.showNetworkError()
+                }
             })
             dataTask.resume()
-           
         }
                 
     }
