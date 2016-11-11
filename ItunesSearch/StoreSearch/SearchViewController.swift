@@ -16,6 +16,7 @@ class SearchViewController: UIViewController {
     var searchResults: [SearchResult] = []
     var hasSearched = false
     var isLoading = false
+    var dataTask: URLSessionDataTask?
     
     
     struct TableViewCellIdentifiers {
@@ -41,14 +42,24 @@ class SearchViewController: UIViewController {
         
         searchBar.becomeFirstResponder()
     }
-   
+    
     @IBAction func segmentChanged(_ sender: UISegmentedControl) {
+        performSearch()
     }
     
     
-    func iTunesURL(searchText: String) -> URL {
+    func iTunesURL(searchText: String, category: Int) -> URL {
+        let entityName: String
+        switch category {
+            case 1: entityName = "musicTrack"
+            case 2: entityName = "software"
+            case 3: entityName = "ebook"
+            default: entityName = ""
+        }
         let escapedSearchText = searchText.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed)!
-        let urlString = String(format:"https://itunes.apple.com/search?term=%@", escapedSearchText)
+        
+        let urlString = String(format:"https://itunes.apple.com/search?term=%@&limit=200&entity=%@", escapedSearchText, entityName)
+        
         let url = URL(string: urlString)
         return url!
     }
@@ -192,20 +203,27 @@ class SearchViewController: UIViewController {
 }
 
 extension SearchViewController: UISearchBarDelegate {
+    
     func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        performSearch()
+    }
+    
+    func performSearch() {
         if !searchBar.text!.isEmpty {
             searchBar.resignFirstResponder()
             
+            dataTask?.cancel()
             isLoading = true
             tableView.reloadData()
             
             hasSearched = true
             searchResults = []
             
-            let url = iTunesURL(searchText: searchBar.text!)
+            let url = self.iTunesURL(searchText: searchBar.text!, category: segmentedControl.selectedSegmentIndex)
+            
             let session = URLSession.shared
             
-            let dataTask = session.dataTask(with: url, completionHandler: { (data, response, error) in
+            dataTask = session.dataTask(with: url, completionHandler: { (data, response, error) in
                 if let error = error as? NSError, error.code == -999 {
                     return // Search was cancelled
                 } else if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200  {
@@ -229,11 +247,11 @@ extension SearchViewController: UISearchBarDelegate {
                     self.showNetworkError()
                 }
             })
-            dataTask.resume()
+            dataTask?.resume()
         }
-                
+        
     }
-
+    
     
     func position(for bar: UIBarPositioning) -> UIBarPosition {
         return .topAttached
